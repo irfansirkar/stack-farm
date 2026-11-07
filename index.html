@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stack-Farm · Live demo</title>
+<meta name="description" content="Stack-Farm demo: early plant-disease detection from leaf photos, made simple for farmers.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232EAD5B'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='900' font-size='13' fill='white' text-anchor='middle'%3ESF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&family=Noto+Sans+Telugu:wght@500;700&family=Noto+Sans+Devanagari:wght@500;700&display=swap">
+<style>
+:root{--bg:#F1F8EC;--card:#fff;--ink:#14240F;--muted:#516349;--line:#D5E8CB;--acc:#2EAD5B;--deep:#1B7A3D;--soft:#E2F4D8;--bad:#D23C3C;--warn:#C77700;
+  --f-head:"Montserrat","Noto Sans Devanagari","Noto Sans Telugu",system-ui,sans-serif;--f-body:"Hanken Grotesk","Noto Sans Devanagari","Noto Sans Telugu","Segoe UI",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.55 var(--f-body)}
+a{color:inherit}
+.demo-bar{background:var(--ink);color:#fff;font:600 12px var(--f-mono);letter-spacing:.05em;padding:8px max(16px,4vw);display:flex;gap:12px;justify-content:space-between;flex-wrap:wrap}
+.demo-bar a{opacity:.8}
+.wrap{max-width:980px;margin:0 auto;padding:24px max(16px,4vw) 60px;display:grid;gap:22px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1{font:900 clamp(32px,6vw,52px)/1 var(--f-head);margin:0;letter-spacing:-.02em}
+h1 span{color:var(--acc)}
+.langs{display:flex;gap:6px}
+.lang{border:2px solid var(--ink);background:var(--card);border-radius:12px;padding:8px 14px;font:700 16px var(--f-body);cursor:pointer;color:var(--ink);min-width:52px}
+.lang[aria-pressed="true"]{background:var(--ink);color:#fff}
+.sub{color:var(--muted);margin:8px 0 0;max-width:60ch}
+.step{font:800 20px var(--f-head);margin:0 0 10px}
+.leaves{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:640px){.leaves{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.leaf{border:3px solid transparent;background:var(--card);border-radius:20px;padding:8px;cursor:pointer;display:grid;gap:4px;font:700 15px var(--f-body);color:var(--ink);box-shadow:0 2px 0 var(--line)}
+.leaf canvas{width:100%;height:auto;border-radius:14px;background:var(--soft)}
+.leaf[aria-pressed="true"]{border-color:var(--acc)}
+.result{background:var(--card);border:3px solid var(--ink);border-radius:24px;padding:20px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:20px;align-items:start}
+@media (max-width:720px){.result{grid-template-columns:1fr}}
+.big{border-radius:18px;overflow:hidden;background:var(--soft);position:relative}
+.big canvas{display:block;width:100%;height:auto}
+.scanline{position:absolute;left:0;right:0;height:50px;top:-50px;background:linear-gradient(transparent,rgba(46,173,91,.45),transparent)}
+.busy .scanline{animation:sc 1s linear}
+@keyframes sc{to{top:100%}}
+.name{font:900 clamp(26px,4vw,34px)/1.1 var(--f-head);margin:6px 0}
+.badge{display:inline-flex;align-items:center;gap:8px;font:800 15px var(--f-body);border-radius:99px;padding:6px 14px;color:#fff}
+.sure{display:grid;gap:4px;margin:14px 0}
+.meter{height:16px;border-radius:99px;background:var(--soft);overflow:hidden}
+.meter b{display:block;height:100%;border-radius:99px;transition:width .8s cubic-bezier(.3,1,.4,1)}
+.todo{display:grid;gap:10px;margin:0;padding:0;list-style:none;counter-reset:s}
+.todo li{display:grid;grid-template-columns:44px minmax(0,1fr);gap:12px;align-items:center;background:var(--soft);border-radius:14px;padding:10px 12px;counter-increment:s}
+.todo li::before{content:counter(s);width:44px;height:44px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font:900 20px var(--f-head)}
+.busy .info{opacity:.2}
+.lbl{font:600 12px var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.how{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.how div{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:14px;font-size:16px}
+.how b{font:800 15px var(--f-head)}
+footer{color:var(--muted);font-size:14px}
+@media (prefers-reduced-motion:reduce){.busy .scanline{animation:none}.meter b{transition:none}}
+</style>
+</head>
+<body>
+<div class="demo-bar"><span>DEMO · DRAWN SAMPLE LEAVES · PRE-COMPUTED RESULTS</span><span><a href="https://github.com/irfansirkar/stack-farm">Code ↗</a> · <a href="https://irfansirkar.github.io/PERSONAL-PORFOLIO-WEBSITE/">Irfan's portfolio ↗</a></span></div>
+<main class="wrap">
+  <div class="top">
+    <div><h1>Stack<span>-Farm</span> 🌱</h1><p class="sub" data-t="sub"></p></div>
+    <div class="langs" id="langs"><button class="lang" data-l="en">EN</button><button class="lang" data-l="hi">हिं</button><button class="lang" data-l="te">తె</button></div>
+  </div>
+
+  <section>
+    <h2 class="step" data-t="pick"></h2>
+    <div class="leaves" id="leaves"></div>
+  </section>
+
+  <section class="result" id="result" aria-live="polite">
+    <div class="big"><canvas id="bigc" width="420" height="320" aria-label="Selected leaf"></canvas><div class="scanline"></div></div>
+    <div class="info">
+      <div class="lbl" data-t="res"></div>
+      <div class="name" id="name"></div>
+      <span class="badge" id="badge"></span>
+      <div class="sure"><span class="lbl" data-t="sure"></span><div class="meter"><b id="mb"></b></div><b id="pct" style="font:900 22px var(--f-head)"></b></div>
+      <div class="lbl" data-t="todo" style="margin-bottom:8px"></div>
+      <ul class="todo" id="todo"></ul>
+    </div>
+  </section>
+
+  <section>
+    <div class="lbl" style="margin-bottom:10px">How the real app works</div>
+    <div class="how">
+      <div><b>1. Photo</b><br>A farmer or field agent takes a photo of one leaf on a basic phone.</div>
+      <div><b>2. Clean up</b><br>Image processing crops the leaf, fixes lighting and resizes it.</div>
+      <div><b>3. Detect</b><br>A TensorFlow CNN trained on leaf images names the disease and how sure it is.</div>
+      <div><b>4. Act</b><br>A simple Streamlit screen shows three plain steps the farmer can take today.</div>
+    </div>
+  </section>
+  <footer>Built by Mohammad Irfan Sirkar at a 2024 hackathon · <a href="https://github.com/irfansirkar">github.com/irfansirkar</a></footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const T={
+ en:{sub:'Take a photo of one leaf. Find out if the plant is sick, and what to do today.',pick:'1. Pick a leaf photo',res:'Result',sure:'How sure',todo:'What to do',sick:'Disease found',ok:'Healthy'},
+ hi:{sub:'एक पत्ते की फोटो लें। जानें कि पौधा बीमार है या नहीं, और आज क्या करें।',pick:'1. पत्ते की फोटो चुनें',res:'परिणाम',sure:'कितना पक्का',todo:'क्या करें',sick:'बीमारी मिली',ok:'स्वस्थ'},
+ te:{sub:'ఒక ఆకు ఫోటో తీయండి. మొక్కకు జబ్బు ఉందో లేదో, ఈరోజు ఏమి చేయాలో తెలుసుకోండి.',pick:'1. ఆకు ఫోటో ఎంచుకోండి',res:'ఫలితం',sure:'ఎంత ఖచ్చితంగా',todo:'ఏమి చేయాలి',sick:'వ్యాధి కనుగొనబడింది',ok:'ఆరోగ్యంగా ఉంది'}
+};
+const L=[
+ {crop:'Tomato',n:'Early blight',p:94,sick:1,draw:'blight',steps:['Pick off and destroy the spotted lower leaves.','Spray a copper-based or mancozeb fungicide every 7–10 days.','Water at the base of the plant in the morning, not on the leaves.']},
+ {crop:'Potato',n:'Late blight',p:89,sick:1,draw:'late',steps:['Remove infected plants quickly so the spores don\'t spread.','Spray a fungicide such as mancozeb before rain.','Don\'t keep potatoes from infected plants as seed.']},
+ {crop:'Maize',n:'Common rust',p:91,sick:1,draw:'rust',steps:['Check nearby plants for the same orange spots.','Spray a fungicide if spots reach the upper leaves early.','Next season, plant a rust-resistant variety.']},
+ {crop:'Tomato',n:'Healthy leaf',p:97,sick:0,draw:'healthy',steps:['No disease found. Keep watering at the roots.','Check the leaves again next week.','Remove weeds around the plant.']}
+];
+function rng(s){return()=>{s=(s*16807)%2147483647;return(s-1)/2147483646}}
+function leaf(ctx,l,i,W,H){
+  const r=rng(i*31+7);ctx.clearRect(0,0,W,H);ctx.save();ctx.translate(W/2,H/2);
+  const long=l.draw==='rust',lw=long?W*.46:W*.36,lh=long?H*.16:H*.4;
+  ctx.rotate(long?-.25:-.5);
+  ctx.fillStyle=l.draw==='late'?'#4E8A3A':'#4FA43A';ctx.beginPath();ctx.moveTo(-lw,0);ctx.quadraticCurveTo(0,-lh*2,lw,0);ctx.quadraticCurveTo(0,lh*2,-lw,0);ctx.fill();
+  ctx.strokeStyle='rgba(220,255,200,.6)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-lw*1.15,0);ctx.lineTo(lw*.95,0);ctx.stroke();
+  if(!long)for(let k=-3;k<=3;k++){if(!k)continue;ctx.beginPath();ctx.moveTo(k*lw*.22,0);ctx.lineTo(k*lw*.22+lw*.18,(k%2?1:-1)*lh*.8);ctx.stroke()}
+  ctx.lineWidth=1;
+  if(l.draw==='blight')for(let n=0;n<9;n++){const x=(r()-.5)*lw*1.4,y=(r()-.5)*lh*1.1,s=5+r()*9;ctx.fillStyle='#E8D36A';ctx.beginPath();ctx.arc(x,y,s+4,0,6.28);ctx.fill();for(let c=s;c>0;c-=3){ctx.fillStyle=c%2?'#5A3A1A':'#7A5228';ctx.beginPath();ctx.arc(x,y,c,0,6.28);ctx.fill()}}
+  if(l.draw==='late'){ctx.fillStyle='rgba(50,40,30,.75)';for(let n=0;n<5;n++){ctx.beginPath();ctx.ellipse(lw*(.3+r()*.5)*(r()<.5?-1:1),(r()-.5)*lh,lw*.22,lh*.35,r()*3,0,6.28);ctx.fill()}ctx.fillStyle='rgba(240,240,240,.35)';for(let n=0;n<30;n++){ctx.beginPath();ctx.arc((r()-.5)*lw*1.6,(r()-.5)*lh*1.2,2,0,6.28);ctx.fill()}}
+  if(l.draw==='rust')for(let n=0;n<70;n++){ctx.fillStyle=r()<.5?'#C2611D':'#E08A2E';ctx.beginPath();ctx.ellipse((r()-.5)*lw*1.6,(r()-.5)*lh*1.2,3,1.6,0,0,6.28);ctx.fill()}
+  ctx.restore();
+}
+let lang='en',cur=0,timer;
+L.forEach((l,i)=>{const b=document.createElement('button');b.className='leaf';const c=document.createElement('canvas');c.width=200;c.height=150;leaf(c.getContext('2d'),l,i,200,150);b.append(c,l.crop);b.onclick=()=>pick(i);$('leaves').appendChild(b)});
+function text(){document.querySelectorAll('[data-t]').forEach(e=>e.textContent=T[lang][e.dataset.t]);[...$('langs').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.l===lang));document.documentElement.lang=lang;badge()}
+function badge(){const l=L[cur];$('badge').textContent=(l.sick?'⚠ ':'✓ ')+T[lang][l.sick?'sick':'ok'];$('badge').style.background=l.sick?'var(--bad)':'var(--acc)'}
+function pick(i){
+  cur=i;const l=L[i];[...$('leaves').children].forEach((b,j)=>b.setAttribute('aria-pressed',j===i));
+  leaf($('bigc').getContext('2d'),l,i,420,320);
+  const res=$('result');res.classList.remove('busy');void res.offsetWidth;res.classList.add('busy');$('mb').style.width='0';clearTimeout(timer);
+  timer=setTimeout(()=>{res.classList.remove('busy');
+    $('name').textContent=`${l.crop} · ${l.n}`;badge();
+    $('mb').style.width=l.p+'%';$('mb').style.background=l.sick?'var(--bad)':'var(--acc)';$('pct').textContent=l.p+'%';
+    $('todo').innerHTML=l.steps.map(s=>`<li><span>${s}</span></li>`).join('');
+  },1000);
+}
+$('langs').onclick=e=>{const b=e.target.closest('.lang');if(b){lang=b.dataset.l;text()}};
+text();pick(0);
+</script>
+</body>
+</html>
